@@ -79,9 +79,13 @@
     <Reference Include="log4net">
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\KNX\Falcon.NET\log4net.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Win32.TaskScheduler">
+      <HintPath>..\..\KNX_PROJECT_WebForms\KNX_PROJECT_WebForms\bin\Microsoft.Win32.TaskScheduler.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
