@@ -16,6 +16,8 @@ using KNXWorker.DPT;
 using Microsoft.Win32.TaskScheduler;
 using System.Numerics;
 using System.Collections;
+using System.Net.Mail;
+using System.Net;
 
 namespace KNXWorker
 {
@@ -26,10 +28,13 @@ namespace KNXWorker
             string _TaskID = string.Empty;
             string _channelGroup = string.Empty;
             string _PillarID = string.Empty;
+            string _TaskSubject = string.Empty;
+            DateTime _TaskStart = DateTime.Now;
+            DateTime _TaskEnd = DateTime.Now;
 
             using (SqlConnection conn = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
             {
-                string sqlSelect = "SELECT [ID],[ChannelGroup],[PillarID] FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'" + _taskguid + "' AND [Start] = (SELECT MIN([Start]) FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'"+_taskguid+"');";
+                string sqlSelect = "SELECT [ID],[ChannelGroup],[PillarID],[Subject],[Start],[End] FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'" + _taskguid + "' AND [Start] = (SELECT MIN([Start]) FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'"+_taskguid+"');";
 
                 conn.Open();
 
@@ -42,6 +47,9 @@ namespace KNXWorker
                         _TaskID = _dt["ID"].ToString();
                         _channelGroup = _dt["ChannelGroup"].ToString();
                         _PillarID = _dt["PillarID"].ToString();
+                        _TaskSubject = _dt["Subject"].ToString();
+                        _TaskStart = (DateTime)_dt["Start"];
+                        _TaskEnd = (DateTime)_dt["End"];
                     }
 
                     _dt.Close();
@@ -109,7 +117,14 @@ namespace KNXWorker
             Ping pingOrder = new Ping();
             for (var i=0; i<4; i++)
             {
-                pingOrder.Send(AddressIP);
+                try
+                {
+                    pingOrder.Send(AddressIP);
+                }
+                catch (PingException ex)
+                {
+
+                }
             }
             pingOrder = null;
 
@@ -138,11 +153,13 @@ namespace KNXWorker
                     updateSchedulerTable(_TaskID, false);
                     updatePillarDeparturesSQL(_PillarID, _channelGroup, true);
                     updateTask(_taskguid, "On");
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, null, null, null);
                 }
                 catch (ConnectorException ex)
                 {
                     updateSchedulerTable(_TaskID, true);
                     updateReportScheduler1(_TaskID, ex.ErrorReason);
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, ex, null, null);
                     if (_bus != null)
                     {
                         _bus.Disconnect();
@@ -153,6 +170,7 @@ namespace KNXWorker
                 {
                     updateSchedulerTable(_TaskID, true);
                     updateReportScheduler2(_TaskID, ex.ErrorReason);
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, null, ex, null);
                     if (_bus != null)
                     {
                         _bus.Disconnect();
@@ -163,6 +181,7 @@ namespace KNXWorker
                 {
                     updateSchedulerTable(_TaskID, true);
                     updateReportScheduler3(_TaskID, ex.ErrorReason);
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, null, null, ex);
                     if (_bus != null)
                     {
                         _bus.Disconnect();
@@ -185,10 +204,13 @@ namespace KNXWorker
             string _TaskID = string.Empty;
             string _channelGroup = string.Empty;
             string _PillarID = string.Empty;
+            string _TaskSubject = string.Empty;
+            DateTime _TaskStart = DateTime.Now;
+            DateTime _TaskEnd = DateTime.Now;
 
             using (SqlConnection conn = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
             {
-                string sqlSelect = "SELECT [ID],[ChannelGroup],[PillarID] FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'" + _taskguid + "' AND [Start] = (SELECT MAX([Start]) FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'" + _taskguid + "');";
+                string sqlSelect = "SELECT [ID],[ChannelGroup],[PillarID],[Subject],[Start],[End] FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'" + _taskguid + "' AND [Start] = (SELECT MAX([Start]) FROM [db_knx].[dbo].[Scheduler] WHERE [TaskGUID] LIKE N'" + _taskguid + "');";
 
                 conn.Open();
 
@@ -201,6 +223,9 @@ namespace KNXWorker
                         _TaskID = _dt["ID"].ToString();
                         _channelGroup = _dt["ChannelGroup"].ToString();
                         _PillarID = _dt["PillarID"].ToString();
+                        _TaskSubject = _dt["Subject"].ToString();
+                        _TaskStart = (DateTime)_dt["Start"];
+                        _TaskEnd = (DateTime)_dt["End"];
                     }
 
                     _dt.Close();
@@ -268,7 +293,13 @@ namespace KNXWorker
             Ping pingOrder = new Ping();
             for (var i = 0; i < 4; i++)
             {
-                pingOrder.Send(AddressIP);
+                try
+                {
+                    pingOrder.Send(AddressIP);
+                }
+                catch (PingException ex)
+                {
+                }
             }
             pingOrder = null;
 
@@ -305,10 +336,12 @@ namespace KNXWorker
                     updateSchedulerTable(_TaskID,false);
                     updatePillarDeparturesSQL(_PillarID, _channelGroup, false);
                     updateTask(_taskguid, "Off");
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, null, null, null);
                 }
                 catch(ConnectorException ex){
                     updateSchedulerTable(_TaskID,true);
                     updateReportScheduler1(_TaskID,ex.ErrorReason);
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, ex, null, null);
                     if(_bus != null){
                         _bus.Disconnect();
                         _bus.Dispose();
@@ -317,6 +350,7 @@ namespace KNXWorker
                 catch(ConnectionException ex){
                     updateSchedulerTable(_TaskID,true);
                     updateReportScheduler2(_TaskID,ex.ErrorReason);
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, null, ex, null);
                     if(_bus != null){
                         _bus.Disconnect();
                         _bus.Dispose();
@@ -325,6 +359,7 @@ namespace KNXWorker
                 catch(NoResponseReceivedException ex){
                     updateSchedulerTable(_TaskID,true);
                     updateReportScheduler3(_TaskID,ex.ErrorReason);
+                    emailWaring(_TaskID, _TaskSubject, _TaskStart, _TaskEnd, _channelGroup, _PillarID, null, null, ex);
                     if(_bus != null){
                         _bus.Disconnect();
                         _bus.Dispose();
@@ -427,7 +462,14 @@ namespace KNXWorker
             Ping pingOrder = new Ping();
             for (var i = 0; i < 4; i++)
             {
-                pingOrder.Send(AddressIP);
+                try
+                {
+                    pingOrder.Send(AddressIP);
+                }
+                catch (PingException ex)
+                {
+
+                }
             }
             pingOrder = null;
 
@@ -457,11 +499,10 @@ namespace KNXWorker
 
                     _bus.Disconnect();
                     _bus.Dispose();
-                    updateSchedulerTable(_TaskID, false);
+                    updateTask(_taskguid, "Meter");
                 }
                 catch (ConnectorException ex)
                 {
-                    updateSchedulerTable(_TaskID, true);
                     updateReportScheduler1(_TaskID, ex.ErrorReason);
                     if (_bus != null)
                     {
@@ -471,7 +512,6 @@ namespace KNXWorker
                 }
                 catch (ConnectionException ex)
                 {
-                    updateSchedulerTable(_TaskID, true);
                     updateReportScheduler2(_TaskID, ex.ErrorReason);
                     if (_bus != null)
                     {
@@ -481,7 +521,6 @@ namespace KNXWorker
                 }
                 catch (NoResponseReceivedException ex)
                 {
-                    updateSchedulerTable(_TaskID, true);
                     updateReportScheduler3(_TaskID, ex.ErrorReason);
                     if (_bus != null)
                     {
@@ -901,6 +940,254 @@ namespace KNXWorker
                 if(_taskExists){
                     _task.Enabled = false;
                 }
+
+                var _taskPing = ts.FindTask("KNXTaskPing" + _job + _taskguid, true);
+
+                bool _taskPingExists = (_taskPing != null);
+
+                if (_taskPingExists)
+                {
+                    _taskPing.Enabled = false;
+                    if (_taskPing.State == TaskState.Running)
+                    {
+                        _taskPing.Stop();
+                    }
+                }
+            }
+        }
+
+        static void emailWaring(string _id, string _subject, DateTime _start, DateTime _end, string _channels, string _pillar, ConnectorException connectorException, ConnectionException connectionException, NoResponseReceivedException noResponseException)
+        {
+            string emailBody = string.Empty;
+
+            if (connectorException != null)
+            {
+                emailBody = "Γεια σας κ. Administrator.<br /><br />" +
+                    "Σας ενημερώνουμε ότι η εργασία " + _id + " με την ημερομηνία έναρξης " + _start.ToString("d/M/yyyy H:mm tt") + " και την ημερομηνία λήξης " + _end.ToString("d/M/yyyy H:mm tt") + " ";
+                if (_subject.IndexOf("LIGHTS ON") > -1)
+                {
+                    emailBody += "δεν άναψε";
+                }
+
+                if (_subject.IndexOf("LIGHTS OFF") > -1)
+                {
+                    emailBody += "δεν έσβησε";
+                }
+
+                if (_channels == "0")
+                {
+                    emailBody += " όλες τις ηλεκτρολογικές αναχωρήσεις";
+                }
+                else
+                {
+                    emailBody += " τις ηλεκτρολογικές αναχωρήσεις " + _channels;
+                }
+
+                emailBody += " του πυλώνα " + getPillarName(_pillar);
+
+                switch (connectorException.ErrorReason)
+                {
+                    case ConnectorException.Reason.DeviceNotFound:
+                        emailBody += " επειδή <span style=\"color:red;\">Η συσκευή KNX δεν μπορεί να βρεθεί</span>.<br/><br/>";
+                        break;
+                    case ConnectorException.Reason.DeviceNotRespond:
+                        emailBody += " επειδή <span style=\"color:red;\">Η συσκευή KNX δεν ανταποκρίνεται στο αναμενόμενο χρόνο</span>.<br/><br/>";
+                        break;
+                    case ConnectorException.Reason.NoMoreConnections:
+                        emailBody += " επειδή : <span style=\"color:red;\">Η συσκευή KNX δεν μπορεί να δεχτεί τη νέα σύνδεση, διότι το ανώτατο οριο των ταυτόχρονων συνδέσεων έχει υπερβεί ήδη</span>.<br/><br/>";
+                        break;
+                    default:
+                        emailBody += " επειδή <span style=\"color:red;\">" + connectorException.ErrorReason + "</span>.<br/>";
+                        break;
+                }
+
+                emailBody += "Με εκτίμηση,<br/>Σύστημα Διαχείρισης Ηλεκτροφωτισμού";
+            }
+
+            if (connectionException != null)
+            {
+                emailBody = "Γεια σας κ. Administrator.<br /><br />" +
+                    "Σας ενημερώνουμε ότι η εργασία " + _id + " με την ημερομηνία έναρξης " + _start.ToString("d/M/yyyy H:mm tt") + " και την ημερομηνία λήξης " + _end.ToString("d/M/yyyy H:mm tt") + " ";
+                if (_subject.IndexOf("LIGHTS ON") > -1)
+                {
+                    emailBody += "δεν άναψε";
+                }
+
+                if (_subject.IndexOf("LIGHTS OFF") > -1)
+                {
+                    emailBody += "δεν έσβησε";
+                }
+
+                if (_channels == "0")
+                {
+                    emailBody += " όλες τις ηλεκτρολογικές αναχωρήσεις";
+                }
+                else
+                {
+                    emailBody += " τις ηλεκτρολογικές αναχωρήσεις " + _channels;
+                }
+
+                emailBody += " του πυλώνα " + getPillarName(_pillar);
+
+                switch (connectionException.ErrorReason)
+                {
+                    case ConnectionException.Reason.NotConnected:
+                        emailBody += " επειδή <span style=\"color:red;\">Η σύνδεση δεν εγκαθιδρύθηκε</span>.<br/><br/>";
+                        break;
+                    case ConnectionException.Reason.NoMoreConnections:
+                        emailBody += " επειδή <span style=\"color:red;\">Η συσκευή δεν μπορεί να δεχθεί τη νέα σύνδεση, διότι το ανώτατο ποσό των ταυτόχρονων συνδέσεων χρησιμοποιείται ήδη.</span>.<br/><br/>";
+                        break;
+                    case ConnectionException.Reason.ConnectionRefused:
+                        emailBody += " επειδή <span style=\"color:red;\">Η σύνδεση αρνήθηκε από τη συσκευή προορισμού</span>.<br/><br/>";
+                        break;
+                    default:
+                        emailBody += " επειδή <span style=\"color:red;\">" + connectionException.ErrorReason + "</span>.<br/>";
+                        break;
+                }
+
+                emailBody += "Με εκτίμηση,<br/>Σύστημα Διαχείρισης Ηλεκτροφωτισμού";
+            }
+
+            if (noResponseException != null)
+            {
+                emailBody = "Γεια σας κ. Administrator.<br /><br />" +
+                    "Σας ενημερώνουμε ότι η εργασία " + _id + " με την ημερομηνία έναρξης " + _start.ToString("d/M/yyyy H:mm tt") + " και την ημερομηνία λήξης " + _end.ToString("d/M/yyyy H:mm tt") + " ";
+                if (_subject.IndexOf("LIGHTS ON") > -1)
+                {
+                    emailBody += "δεν άναψε";
+                }
+
+                if (_subject.IndexOf("LIGHTS OFF") > -1)
+                {
+                    emailBody += "δεν έσβησε";
+                }
+
+                if (_channels == "0")
+                {
+                    emailBody += " όλες τις ηλεκτρολογικές αναχωρήσεις";
+                }
+                else
+                {
+                    emailBody += " τις ηλεκτρολογικές αναχωρήσεις " + _channels;
+                }
+
+                emailBody += " του πυλώνα " + getPillarName(_pillar);
+
+                switch (noResponseException.ErrorReason)
+                {
+                    case NoResponseReceivedException.Reason.Confirmation:
+                        emailBody += " επειδή <span style=\"color:red;\">Δεν λήφθηκε επιβεβαίωση για το τηλεγράφημα</span>.<br/><br/>";
+                        break;
+                    case NoResponseReceivedException.Reason.NegativeConfirmation:
+                        emailBody += " επειδή <span style=\"color:red;\">Λήφθηκε μια αρνητική επιβεβαίωση για το τηλεγράφημα</span>.<br/><br/>";
+                        break;
+                    case NoResponseReceivedException.Reason.Indication:
+                        emailBody += " επειδή <span style=\"color:red;\">Καμία ένδειξη για το τηλεγράφημα</span>.<br/><br/>";
+                        break;
+                    default:
+                        emailBody += " επειδή <span style=\"color:red;\">" + noResponseException.ErrorReason + "</span>.<br/>";
+                        break;
+                }
+
+                emailBody += "Με εκτίμηση,<br/>Σύστημα Διαχείρισης Ηλεκτροφωτισμού";
+            }
+            
+            if(connectorException == null && connectionException == null && noResponseException == null)
+            {
+                emailBody = "Γεια σας κ. Administrator.<br /><br />" +
+                    "Σας ενημερώνουμε ότι η εργασία " + _id + " με την ημερομηνία έναρξης " + _start.ToString("d/M/yyyy H:mm tt") + " και την ημερομηνία λήξης " + _end.ToString("d/M/yyyy H:mm tt")+" ";
+                if (_subject.IndexOf("LIGHTS ON") > -1)
+                {
+                    emailBody += "άναψε";
+                }
+
+                if (_subject.IndexOf("LIGHTS OFF") > -1)
+                {
+                    emailBody += "έσβησε";
+                }
+
+                if (_channels == "0")
+                {
+                    emailBody += " όλες τις ηλεκτρολογικές αναχωρήσεις";
+                }
+                else
+                {
+                    emailBody += " τις ηλεκτρολογικές αναχωρήσεις " + _channels;
+                }
+
+                emailBody += " του πυλώνα "+getPillarName(_pillar) + ".<br/><br/>";
+                emailBody += "Με εκτίμηση,<br/>Σύστημα Διαχείρισης Ηλεκτροφωτισμού";
+            }
+
+            // Send email report to system administrator
+            try
+            {
+                SmtpClient ob = new SmtpClient("smtp.office365.com");
+                ob.UseDefaultCredentials = false;
+                ob.EnableSsl = true;
+                ob.Credentials = new NetworkCredential("crikkou@apopsi.gr", "83Ruid1987!");
+
+                MailMessage obMsg = new MailMessage();
+                obMsg.From = new MailAddress("crikkou@apopsi.gr", "Σύστημα Διαχείρισης Ηλεκτροφωτισμού (Do not reply)");
+                obMsg.To.Add(new MailAddress("crikkou@apopsi.gr", "Διαχειριστής συστήματος διαχείρισης ηλεκτροφωτισμού"));
+                obMsg.Subject = "Ενημέρωση για την εργασία "+_id+".";
+                obMsg.IsBodyHtml = true;
+                obMsg.Body = emailBody;
+                ob.Send(obMsg);
+            }
+            catch (Exception ex)
+            {
+                string msg = ex.ToString();
+            }
+            // Send email report to system administrator
+        }
+
+        static string getPillarName(string id)
+        {
+            string pillarName = string.Empty;
+
+            using (SqlConnection conn = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+            {
+                conn.Open();
+
+                string sqlSelectName = "SELECT [Name] FROM [db_knx].[dbo].[Pillars] WHERE [ID] = " + id + ";";
+
+                using (SqlCommand sqlComm = new SqlCommand(sqlSelectName, conn))
+                {
+                    SqlDataReader _dt = sqlComm.ExecuteReader();
+
+                    while (_dt.Read())
+                    {
+                        pillarName = _dt["Name"].ToString();
+                    }
+
+                    _dt.Close();
+                }
+
+                conn.Close();
+            }
+
+            return pillarName;
+        }
+
+        static void disableRunningZombieTasks()
+        {
+            using (TaskService ts = new TaskService())
+            {
+                RunningTaskCollection runningTasks = ts.GetRunningTasks();
+                TaskFolder KNXFolder = ts.GetFolder("KNX");
+
+                for (var i = 0; i < runningTasks.Count; i++)
+                {
+                    if (runningTasks[i].Folder.Path == "\\KNX")
+                    {
+                        if (runningTasks[i].NextRunTime < DateTime.Now)
+                        {
+                            runningTasks[i].Enabled = false;
+                            runningTasks[i].Stop();
+                        }
+                    }
+                }
             }
         }
 
@@ -909,12 +1196,15 @@ namespace KNXWorker
             switch (args[1])
             {
                 case "On":
+                    disableRunningZombieTasks();
                     switchON(args[0], args[2]);
                     break;
                 case "Off":
+                    disableRunningZombieTasks();
                     switchOFF(args[0], args[2]);
                     break;
                 case "Meter":
+                    disableRunningZombieTasks();
                     meterCurrent(args[0], args[2]);
                     break;
             }
