@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using Knx.Bus.Common.Configuration;
 using Knx.Bus.Common;
 using Knx.Bus.Common.GroupValues;
@@ -939,6 +939,10 @@ namespace KNXWorker
 
                 if(_taskExists){
                     _task.Enabled = false;
+                    if (_task.State == TaskState.Running)
+                    {
+                        _task.Stop();
+                    }
                 }
 
                 var _taskPing = ts.FindTask("KNXTaskPing" + _job + _taskguid, true);
@@ -1174,40 +1178,50 @@ namespace KNXWorker
         {
             using (TaskService ts = new TaskService())
             {
-                RunningTaskCollection runningTasks = ts.GetRunningTasks();
-                TaskFolder KNXFolder = ts.GetFolder("KNX");
-
-                for (var i = 0; i < runningTasks.Count; i++)
+                if (!ts.Connected)
                 {
-                    if (runningTasks[i].Folder.Path == "\\KNX")
+                    RunningTaskCollection runningTasks = ts.GetRunningTasks();
+                    TaskFolder KNXFolder = ts.GetFolder("KNX");
+
+                    for (var i = 0; i < runningTasks.Count; i++)
                     {
-                        if (runningTasks[i].NextRunTime < DateTime.Now)
+                        if (runningTasks[i].Folder.Path == "\\KNX")
                         {
-                            runningTasks[i].Enabled = false;
-                            runningTasks[i].Stop();
+                            if (runningTasks[i].NextRunTime < DateTime.Now)
+                            {
+                                runningTasks[i].Enabled = false;
+                                runningTasks[i].Stop();
+                            }
                         }
                     }
                 }
             }
         }
 
-        static void Main(string[] args)
+        static void doWork(string _guid, string _job, string _name)
         {
-            switch (args[1])
+            switch (_job)
             {
                 case "On":
+                    switchON(_guid, _name);
                     disableRunningZombieTasks();
-                    switchON(args[0], args[2]);
                     break;
                 case "Off":
+                    switchOFF(_guid, _name);
                     disableRunningZombieTasks();
-                    switchOFF(args[0], args[2]);
                     break;
                 case "Meter":
+                    meterCurrent(_guid, _name);
                     disableRunningZombieTasks();
-                    meterCurrent(args[0], args[2]);
                     break;
             }
+        }
+
+        static void Main(string[] args)
+        {
+            ThreadStart starter = delegate { doWork(args[0], args[1], args[2]); };
+            Thread newThread = new Thread(starter);
+            newThread.Start();
         }
     }
 }
